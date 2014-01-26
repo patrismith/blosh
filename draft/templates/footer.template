@@ -1,5 +1,7 @@
-<div class="footer">
-Page modified on varTIMESTAMP.
-</div class="footer">
+<footer>
+<h6>Page last modified on varTIMESTAMP.</h6>
+</footer>
+</article>
+</section>
 </body>
 </html>

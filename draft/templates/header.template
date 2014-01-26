@@ -9,8 +9,12 @@
 </head>
 
 <body>
-<div>
+<section>
+<aside>
+<h2>
 Menu<br />
 Select<br />
 Select 2 <br />
-</div>
+</h2>
+</aside>
+<article>
