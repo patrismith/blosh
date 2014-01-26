@@ -13,7 +13,7 @@ rsync -at --include '*.css' --exclude '*' draft/css/ live/
 
 # Update images
 
-rsync -at draft/images live/images
+rsync -at draft/images live/
 
 # Update single pages
 
