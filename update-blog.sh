@@ -21,10 +21,17 @@ done
 
 for filename in $( find draft/blog -type f -name "*.md" | sort )
 do
+    # if title already exists, then there is a previous file to link to
     if [ $title ]
     then
         previousfile="$title".html
     fi
+
+    # Strip timestamp from filename
+    combined=${filename##*/}
+    # set title for the next file to use
+    read createddate title <<<$(IFS="_"; echo $combined)
+    read title unused<<<$(IFS="."; echo $title)
 
     newsum="`cksum $filename`"
     # find the ones with a differing checksum
@@ -35,14 +42,11 @@ do
         forcefile=false
     fi
 
+    # if blogpost has been modified or is new
     if [ $forcefile ]
     then
-        # Strip timestamp from filename
-        combined=${filename##*/}
-        read createddate title <<<$(IFS="_"; echo $combined)
 
         # Convert markdown to html
-        read title unused<<<$(IFS="."; echo $title)
         newfilename=draft/blog/$title.html
         markdown $filename > $newfilename
 
@@ -67,18 +71,17 @@ do
         if [ $previousfile ]
         then
             postname=$( echo $title | tr - ' ' )
-            sed "s/varNEWER/$title.html/;s/varNEXT/$postname/" < draft/blog/$previousfile > draft/blog/$previousfile.tmp
+            sed "s/varNEWER/$title.html/;s/varNEXT/next: $postname/" < draft/blog/$previousfile > draft/blog/$previousfile.tmp
             mv draft/blog/$previousfile.tmp draft/blog/$previousfile
 
             postname=$( echo $previoustitle | tr - ' ' )
-            sed "s/varOLDER/$previousfile/;s/varPREVIOUS/$postname/" < $newfilename > $newfilename.tmp
+            sed "s/varOLDER/$previousfile/;s/varPREVIOUS/prev: $postname/" < $newfilename > $newfilename.tmp
         else
             sed "s/varOLDER//;s/varPREVIOUS//" < $newfilename > $newfilename.tmp
         fi
         mv $newfilename.tmp $newfilename
         lastpost=$title.html
         previoustitle=$title
-        echo "last post: " $title
     fi
 done
 

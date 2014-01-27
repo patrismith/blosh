@@ -3,6 +3,9 @@ a {
     text-decoration: inherit;
 }
 
+a:hover {
+    color: #666;
+}
 
 aside, nav, h2, h4, h5, li, article, footer, section {
     display: block;
@@ -50,14 +53,6 @@ footer {
     margin: 1em;
     font-family: 'Inika', serif;
     background: white;
-}
-
-span:hover {
-    color: #666;
-}
-
-a hover {
-    color: #666;
 }
 
 
