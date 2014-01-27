@@ -21,6 +21,11 @@ done
 
 for filename in $( find draft/blog -type f -name "*.md" | sort )
 do
+    if [ $title ]
+    then
+        previousfile="$title".html
+    fi
+
     newsum="`cksum $filename`"
     # find the ones with a differing checksum
     if ! grep -q "$newsum" $CKSUM
@@ -34,22 +39,19 @@ do
     then
         # Strip timestamp from filename
         combined=${filename##*/}
-        read timestamp title <<<$(IFS="_"; echo $combined)
-        echo "timestamp: $timestamp"
-        echo "title: $title"
-        echo "combined: $combined"
-        echo "filename: $filename"
+        read createddate title <<<$(IFS="_"; echo $combined)
 
         # Convert markdown to html
         read title unused<<<$(IFS="."; echo $title)
-        echo "title: $title"
         newfilename=draft/blog/$title.html
-        echo "newfilename: $newfilename"
         markdown $filename > $newfilename
+
+        # Append blogheader to header
+        cat draft/templates/header.template draft/templates/blogheader.template > draft/templates/temp.template
 
         # Prepend header
         # this goes to a header creation script
-        cat draft/templates/header.template $newfilename > $newfilename.tmp
+        cat draft/templates/temp.template $newfilename > $newfilename.tmp
         mv $newfilename.tmp $newfilename
 
         # Append footer
@@ -57,13 +59,31 @@ do
         cat draft/templates/footer.template >> $newfilename
 
         # Replace varTIMESTAMP in file with actual timestamp
-        timestamp="`date \"+%B %d %Y\"`"
+        timestamp=$( date "+%B %d %Y" )
+        datestamp=$( date --d @$createddate "+%B %d %Y")
 
-        sed "s/varTIMESTAMP/$timestamp/" < $newfilename > $newfilename.tmp
+        sed "s/varTIMESTAMP/$timestamp/;s/varDATESTAMP/$datestamp/" < $newfilename > $newfilename.tmp
         mv $newfilename.tmp $newfilename
-        echo "Added on $timestamp."
+        if [ $previousfile ]
+        then
+            postname=$( echo $title | tr - ' ' )
+            sed "s/varNEWER/$title.html/;s/varNEXT/$postname/" < draft/blog/$previousfile > draft/blog/$previousfile.tmp
+            mv draft/blog/$previousfile.tmp draft/blog/$previousfile
+
+            postname=$( echo $previoustitle | tr - ' ' )
+            sed "s/varOLDER/$previousfile/;s/varPREVIOUS/$postname/" < $newfilename > $newfilename.tmp
+        else
+            sed "s/varOLDER//;s/varPREVIOUS//" < $newfilename > $newfilename.tmp
+        fi
+        mv $newfilename.tmp $newfilename
+        lastpost=$title.html
+        previoustitle=$title
+        echo "last post: " $title
     fi
 done
+
+sed "s/varNEWER//;s/varNEXT//" < draft/blog/$lastpost > draft/blog/$lastpost.tmp
+mv draft/blog/$lastpost.tmp draft/blog/$lastpost
 
 # rsync html files to live
 rsync -at --include '*.html' --exclude '*' draft/blog/ live/blog/

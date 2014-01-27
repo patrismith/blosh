@@ -1,4 +1,10 @@
-aside, h2, li, article, footer, section {
+a {
+    color: inherit;
+    text-decoration: inherit;
+}
+
+
+aside, nav, h2, h4, h5, li, article, footer, section {
     display: block;
     color: #222;
     background: white;
@@ -18,10 +24,6 @@ h2 {
     font-family: 'Actor', sans-serif;
     color: #333;
     font-size: 1.5em;
-}
-
-ul {
-    list-style: none;
 }
 
 li {
@@ -54,6 +56,38 @@ span:hover {
     color: #666;
 }
 
+a hover {
+    color: #666;
+}
+
+
+h6 {
+    float: right;
+}
+
+h5 {
+    width: 100%;
+    margin: 0em;
+    position: relative;
+    float: left;
+    clear: both;
+    display: block;
+    background: white;
+    border-bottom: 1px solid #555;
+}
+
+.prev {
+    float: left;
+}
+
+.next {
+    float: right;
+}
+
+nav {
+    width: 100%;
+}
+
 @media only screen and (min-width : 0px) and (max-width : 800px) {
 
 aside {
@@ -67,15 +101,8 @@ aside {
     border-bottom: 1px solid #555;
 }
 
-ul {
-    width: 100%;
-    text-align: center;
-    list-style: none;
-}
-
 li {
     width: 33%;
-    font-size: 1em;
     float: left;
 }
 
@@ -90,11 +117,6 @@ h2 {
     font-size: 0.75em;
 }
 
-}
-
-h2 a {
-    color: inherit;
-    text-decoration: inherit;
 }
 
 @media only screen and (min-width : 801px) and (max-width : 960px) {
@@ -122,6 +144,7 @@ h2 {
     background: none;
     font-size: 1em;
 }
+
 
 }
 
