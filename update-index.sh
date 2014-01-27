@@ -44,6 +44,7 @@ do
         # this could go to a footer creation script
         cat draft/templates/footer.template >> $newfilename
 
+        # Replace varTIMESTAMP in file with actual timestamp
         timestamp="`date \"+%B %d %Y\"`"
 
         sed "s/varTIMESTAMP/$timestamp/" < $newfilename > $newfilename.tmp

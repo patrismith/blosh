@@ -50,6 +50,9 @@ footer {
     background: white;
 }
 
+span:hover {
+    color: #666;
+}
 
 @media only screen and (min-width : 0px) and (max-width : 800px) {
 
@@ -87,6 +90,11 @@ h2 {
     font-size: 0.75em;
 }
 
+}
+
+h2 a {
+    color: inherit;
+    text-decoration: inherit;
 }
 
 @media only screen and (min-width : 801px) and (max-width : 960px) {
