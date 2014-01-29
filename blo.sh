@@ -51,11 +51,12 @@ my_rsync ()
     fi
 
     # TODO: -v option contingent on $verbose
+    # TODO: --dry-run option enabled with flag
     if [ "$3" ]; then
-        rsync -atv --include "*.$3" --exclude "*" --dry-run "$1" "$2"
+        rsync -atv --include "*.$3" --exclude "*" "$1" "$2"
         vecho "Synced $3 files of $1 and $2."
     else
-        rsync -atv $file_format --dry-run "$1" "$2"
+        rsync -atv $file_format "$1" "$2"
         vecho "Synced $1 and $2."
     fi
     return 0
@@ -122,6 +123,7 @@ md_to_html ()
     # $1 - a markdown file
 
     htmlfilename="${1%.md}".html
+
     markdown $1 > $htmlfilename
     vecho "Converted $1 to $htmlfilename."
 }
@@ -197,6 +199,25 @@ update_index ()
     fi
 }
 
+add_newer_link ()
+{
+    local LPATH=$PATH_DRAFT$PATH_BLOG
+    # $1 - 'title'
+    # $2 - 'previousfilename'
+    # $3 -
+    local postname=$( echo $1 | tr - ' ' )
+    sed "s/varNEWER/$1.html/;s/varNEXT/next: $postname/" < $LPATH$2 > $LPATH$2.tmp
+    mv $LPATH$2.tmp $LPATH$2
+}
+
+add_older_link ()
+{
+    # $1 - 'previoustitle'
+    # $2 - previousfilename
+    local postname=$( echo $1 | tr - ' ' )
+    sed "s/varOLDER/$2/;s/varPREVIOUS/prev: $postname/" < $htmlfilename > $htmlfilename.tmp
+}
+
 update_blog ()
 {
     local LPATH=$PATH_DRAFT$PATH_BLOG
@@ -216,45 +237,52 @@ update_blog ()
         # if title already exists, then there is a previous file to link to
         if [ $title ]
         then
-            previousfile="$title".html
+            echo "Title of $title existed."
+            prev_filename="$title".html
+            echo "Prev_filename is $prev_filename."
         fi
 
         # Strip timestamp from filename
-        combined=${filename##*/}
+        stripped_filename=${filename##*/}
+        echo "Stripped_filename is $stripped_filename."
         # set title for the next file to use
-        read createddate title <<<$(IFS="_"; echo $combined)
-        read title unused<<<$(IFS="."; echo $title)
+        read created_date title_and_extension <<<$(IFS="_"; echo $stripped_filename)
+        echo "Read $created_date and $title_and_extension"
+        read title unused <<<$(IFS="."; echo $title_and_extension)
+        echo "Read $title (which is now title) and $unused."
 
         if [[ $forceall || $( check_if_file_modified $filename $CKSUM_LIST ) ]]
         then
             vecho "---Updating $filename."
             update=true
             md_to_html $filename
+            echo "We have a htmlfilename of $htmlfilename now."
+            echo "We want to move it to $title.html."
             create_blog_header $HEADER $BLOGHEADER
             prepend_header $htmlfilename $TEMPHEADER
+            rm $TEMPHEADER
             append_footer $htmlfilename $FOOTER
             apply_timestamp $htmlfilename
 
             # clean this mess up
-            if [ $previousfile ]
+            if [ $prev_filename ]
             then
-                postname=$( echo $title | tr - ' ' )
-                sed "s/varNEWER/$title.html/;s/varNEXT/next: $postname/" < draft/blog/$previousfile > draft/blog/$previousfile.tmp
-                mv draft/blog/$previousfile.tmp draft/blog/$previousfile
-
-                postname=$( echo $previoustitle | tr - ' ' )
-                sed "s/varOLDER/$previousfile/;s/varPREVIOUS/prev: $postname/" < $htmlfilename > $htmlfilename.tmp
+                echo "Prev_filename existed, it is $prev_filename."
+                add_newer_link $title $prev_filename
+                add_older_link $prev_title $prev_filename
             else
                 sed "s/varOLDER//;s/varPREVIOUS//" < $htmlfilename > $htmlfilename.tmp
             fi
-            mv $htmlfilename.tmp $htmlfilename
-            previoustitle=$title
+            echo "Trying to move $htmlfilename.tmp to $LPATH$title.html."
+            mv $htmlfilename.tmp $LPATH$title.html
+            rm $htmlfilename
+            prev_title=$title
         fi
     done
 
     if [ $update ]
     then
-        my_rsync "$LPATH" "$PATH_LIVE" "html"
+        my_rsync "$LPATH" "$PATH_LIVE$PATH_BLOG" "html"
         update_cksum "$LPATH" "md" "$CKSUM_LIST"
     fi
 }
