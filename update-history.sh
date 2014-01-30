@@ -2,10 +2,6 @@
 
 # Generate new history file with links to blog posts in reverse chronological order.
 
-rm draft/templates/temp.template
-rm draft/templates/tempnew.template
-rm draft/templates/tempfinal.template
-
 echo "entering loop"
 # Get sorted list of .md files in draft/blog
 for filename in $( find draft/blog -type f -name "*.md" | sort -r )
@@ -38,5 +34,9 @@ cat draft/templates/header.template draft/templates/tempfinal.template > draft/t
 mv draft/templates/temp.template live/blog/index.html
 
 cat draft/templates/footer.template >> live/blog/index.html
+
+rm draft/templates/temp.template
+rm draft/templates/tempnew.template
+rm draft/templates/tempfinal.template
 
 # save to blog/index.html
