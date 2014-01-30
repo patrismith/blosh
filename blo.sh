@@ -353,6 +353,7 @@ update_history ()
     # it doesn't fit neatly with the operations of the index or blog folders.
     prepend_header $TEMPLATE_HISTORY.allentries $TEMPLATE_HEADER $PATH_HISTORY_PAGE
     append_footer $PATH_HISTORY_PAGE $TEMPLATE_FOOTER
+    apply_timestamp $PATH_HISTORY_PAGE
     clean_history_tmps
     vecho "History page saved to $PATH_HISTORY_PAGE."
 }
