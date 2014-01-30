@@ -4,37 +4,38 @@
 # Search TODO to find more to do
 
 # Folder names
-# It's a little awkward with the slashes and dots, should change that
-PATH_DRAFT='./draft/'
-PATH_LIVE='./live/'
-PATH_BLOG='blog/'
-PATH_INDEX='index/'
-PATH_CSS='css/'
-PATH_IMAGES='images/'
-PATH_TEMPLATES='templates/'
+readonly PATH_DRAFT='./draft/'
+readonly PATH_LIVE='./live/'
+readonly PATH_BLOG='blog/'
+readonly PATH_INDEX='index/'
+readonly PATH_CSS='css/'
+readonly PATH_IMAGES='images/'
+readonly PATH_TEMPLATES='templates/'
+readonly PATH_HISTORY_PAGE=$PATH_LIVE"history.html"
 
-HEADER=$PATH_DRAFT$PATH_TEMPLATES"header.template"
-BLOGHEADER=$PATH_DRAFT$PATH_TEMPLATES"blogheader.template"
-TEMPHEADER=$PATH_DRAFT$PATH_TEMPLATES"tempheader.template"
-FOOTER=$PATH_DRAFT$PATH_TEMPLATES"footer.template"
+readonly TEMPLATE_HEADER=$PATH_DRAFT$PATH_TEMPLATES"header.template"
+readonly TEMPLATE_BLOGHEADER=$PATH_DRAFT$PATH_TEMPLATES"blogheader.template"
+readonly TEMPLATE_TEMPHEADER=$PATH_DRAFT$PATH_TEMPLATES"tempheader.tmp"
+readonly TEMPLATE_FOOTER=$PATH_DRAFT$PATH_TEMPLATES"footer.template"
+readonly TEMPLATE_HISTORY=$PATH_DRAFT$PATH_TEMPLATES"history.template"
 
 # 'variables' that appear in the html templates.
 # Used for inserting times, dates, and links to other posts.
-HTML_VAR_TIMESTAMP="varTIMESTAMP"
-HTML_VAR_DATESTAMP="varDATESTAMP"
-HTML_VAR_OLDER="varOLDER"
-HTML_VAR_PREV="varPREVIOUS"
-HTML_VAR_NEWER="varNEWER"
-HTML_VAR_NEXT="varNEXT"
+readonly HTML_VAR_TIMESTAMP="varTIMESTAMP"
+readonly HTML_VAR_DATESTAMP="varDATESTAMP"
+readonly HTML_VAR_OLDER="varOLDER"
+readonly HTML_VAR_PREV="varPREVIOUS"
+readonly HTML_VAR_NEWER="varNEWER"
+readonly HTML_VAR_NEXT="varNEXT"
 
-CKSUM_FILE='.cksum-list'
+readonly CKSUM_FILE='.cksum-list'
 
 while getopts fv name
 do
     case $name in
         f) forceall=true;;
         v) verbose=true;;
-        ?) echo "Usage: hahahaha"
+        ?) echo "Usage: ./blo.sh [ -f -v ]"
         exit 2;;
     esac
 done
@@ -110,11 +111,6 @@ update_cksum ()
     find $1 -type f -name "*.$2" -exec cksum {} + > $3
 }
 
-generate_post_history ()
-{
-    echo
-}
-
 # Sync draft and live css files
 update_css ()
 {
@@ -152,10 +148,18 @@ prepend_header ()
 {
     # $1 - an html file
     # $2 - a header template
+    # $3 - optional target destination
+    local target
 
-    cat $2 $1 > $1.tmp
-    mv $1.tmp $1
-    vecho "Prepended header to $1"
+    if [ $3 ]; then
+        target="$3"
+    else
+        target="$1"
+    fi
+
+    cat $2 $1 > $target.tmp
+    mv $target.tmp $target
+    vecho "Prepended header to $target"
 }
 
 # Add a footer file to the end of an html file
@@ -169,20 +173,41 @@ append_footer ()
 }
 
 # Add a blog-specific header to a header file to create a new temporary template
-create_blog_header ()
+concat_header ()
 {
     # $1 - a header template
     # $2 - a blog-specific header addition
 
-    cat $1 $2 > $TEMPHEADER
+    cat $1 $2 > $TEMPLATE_TEMPHEADER
+    vecho "Concatenated headers $1 and $2 "
+}
+
+# Append header and footer to history page
+publish_history ()
+{
+    prepend_header $1 $2 $PATH_HISTORY_PAGE
+}
+
+#assumes local var 'timestamp'
+get_timestamp ()
+{
+    timestamp=$( date "+%B %d %Y" )
+}
+
+#assumes local var 'datestamp'
+get_datestamp ()
+{
+    # $1 - a number representing seconds since epoch
+    datestamp=$( date --d @$1 "+%B %d %Y")
 }
 
 # Replace a specific string in an html file with a 'last modified' timestamp
 apply_timestamp ()
 {
     # $1 - an html file
-    local timestamp=$( date "+%B %d %Y" )
+    local timestamp
 
+    get_timestamp
     sed "s/$HTML_VAR_TIMESTAMP/$timestamp/" < $1 > $1.tmp
     mv $1.tmp $1
     vecho "Timestamp of $timestamp applied to $1"
@@ -193,8 +218,9 @@ apply_datestamp ()
 {
     # $1 - an html file
     # $2 - a timestamp
-    local datestamp=$( date --d @$2 "+%B %d %Y")
+    local datestamp
 
+    get_datestamp $2
     sed "s/$HTML_VAR_DATESTAMP/$datestamp/" < $1 > $1.tmp
     mv $1.tmp $1
     vecho "Datestamp of $datestamp applied to $1"
@@ -225,8 +251,8 @@ update_index ()
             vecho "---Updating $filename."
             update=true
             md_to_html $filename
-            prepend_header $htmlfilename $HEADER
-            append_footer $htmlfilename $FOOTER
+            prepend_header $htmlfilename $TEMPLATE_HEADER
+            append_footer $htmlfilename $TEMPLATE_FOOTER
             apply_timestamp $htmlfilename
         fi
     done
@@ -236,6 +262,15 @@ update_index ()
         my_rsync "$LPATH" "$PATH_LIVE" "html"
         update_cksum "$LPATH" "md" "$CKSUM_LIST"
     fi
+    vecho "Index files updated."
+}
+
+# Gets rid of the hyphens in a filename
+# assumes local var 'postname'
+get_postname ()
+{
+    # $1 - a filename with hyphens
+    postname=$( echo $1 | tr - ' ' )
 }
 
 add_newer_link ()
@@ -243,7 +278,11 @@ add_newer_link ()
     # $1 - title of a blog entry
     # $2 - filename of a blog entry
     local LPATH=$PATH_DRAFT$PATH_BLOG
-    local postname=$( echo $1 | tr - ' ' )
+    local postname
+
+    # this doesn't have to be called w/ arg because
+    # $1 is defined in this subroutine
+    get_postname
     sed "s/$HTML_VAR_NEWER/$1.html/;s/$HTML_VAR_NEXT/next: $postname/" < $LPATH$2 > $LPATH$2.tmp
     mv $LPATH$2.tmp $LPATH$2
 }
@@ -252,8 +291,70 @@ add_older_link ()
 {
     # $1 - title of a blog entry
     # $2 - filename of a blog entry
-    local postname=$( echo $1 | tr - ' ' )
+    local postname
+
+    get_postname
     sed "s/$HTML_VAR_OLDER/$2/;s/$HTML_VAR_PREV/prev: $postname/" < $htmlfilename > $htmlfilename.tmp
+}
+
+# strip the timestamp off a filename
+# assumes local vars:
+# filename - the original timestamped md file
+# stripped_filename - the filename without its path
+# created_date - the timestamp (seconds since epoch)
+# title - the 'title' part of the filename
+strip_filename ()
+{
+    stripped_filename=${filename##*/}
+    read created_date title_and_extension <<<$(IFS="_"; echo $stripped_filename)
+    read title unused <<<$(IFS="."; echo $title_and_extension)
+}
+
+# records history entries in the master tmp file, $TEMPLATE_HISTORY.final.tmp
+# assumes local vars:
+# datestamp - a blog post's creation date
+# title - the post's title
+# postname - the post's title sans hyphens
+add_history_entry()
+{
+    sed "s/varDATESTAMP/$datestamp/;s/varTITLE/$title.html/;s/varPOSTNAME/$postname/" < $TEMPLATE_HISTORY > $TEMPLATE_HISTORY.tmp
+    cat $TEMPLATE_HISTORY.allentries $TEMPLATE_HISTORY.tmp > $TEMPLATE_HISTORY.allentries.tmp
+    cp $TEMPLATE_HISTORY.allentries.tmp $TEMPLATE_HISTORY.allentries
+}
+
+clean_history_tmps()
+{
+    rm $TEMPLATE_HISTORY.tmp $TEMPLATE_HISTORY.allentries.tmp $TEMPLATE_HISTORY.allentries
+}
+
+# generate a page listing all blog posts in reverse chronological order
+update_history ()
+{
+    local stripped_filename
+    local created_date
+    local title
+    local postname
+    local datestamp
+
+    # to suppress cat error message when add_history_entry is first called
+    touch $TEMPLATE_HISTORY.allentries
+
+    for filename in $( find draft/blog -type f -name "*.md" | sort -r )
+    do
+        vecho "Generating history entry for $filename..."
+        strip_filename
+        get_postname $title
+        get_datestamp $created_date
+        add_history_entry
+    done
+
+    # uses prepend_header function, but notice that it is moved directly to live here.
+    # since the html is generated directly, and not from a markdown file,
+    # it doesn't fit neatly with the operations of the index or blog folders.
+    prepend_header $TEMPLATE_HISTORY.allentries $TEMPLATE_HEADER $PATH_HISTORY_PAGE
+    append_footer $PATH_HISTORY_PAGE $TEMPLATE_FOOTER
+    clean_history_tmps
+    vecho "History page saved to $PATH_HISTORY_PAGE."
 }
 
 update_blog ()
@@ -262,6 +363,9 @@ update_blog ()
     local CKSUM_LIST=$LPATH$CKSUM_FILE
     local htmlfilename
     local update
+    local stripped_filename
+    local created_date
+    local title
 
     # make sure all the markdown files that don't have dates are given dates now
     for filename in $( find $LPATH -type f -name "*.md" | sort )
@@ -275,21 +379,18 @@ update_blog ()
         # if title already exists, then there is a previous file to link to
         [ $title ] && prev_filename="$title".html
 
-        # Strip timestamp from filename
-        stripped_filename=${filename##*/}
-        # set title for the next file to use
-        read created_date title_and_extension <<<$(IFS="_"; echo $stripped_filename)
-        read title unused <<<$(IFS="."; echo $title_and_extension)
+        # Strip timestamp from filename and set title for the next file to use
+        strip_filename
 
         if [[ $forceall || $( check_if_file_modified $filename $CKSUM_LIST ) ]]
         then
             vecho "---Updating $filename."
             update=true
             md_to_html $filename
-            create_blog_header $HEADER $BLOGHEADER
-            prepend_header $htmlfilename $TEMPHEADER
-            rm $TEMPHEADER
-            append_footer $htmlfilename $FOOTER
+            concat_header $TEMPLATE_HEADER $TEMPLATE_BLOGHEADER
+            prepend_header $htmlfilename $TEMPLATE_TEMPHEADER
+            rm $TEMPLATE_TEMPHEADER
+            append_footer $htmlfilename $TEMPLATE_FOOTER
             apply_timestamp $htmlfilename
             apply_datestamp $htmlfilename $created_date
 
@@ -318,10 +419,11 @@ update_blog ()
         my_rsync "$LPATH" "$PATH_LIVE$PATH_BLOG" "html"
         update_cksum "$LPATH" "md" "$CKSUM_LIST"
     fi
+    vecho "Blog updated."
 }
 
-
-update_index
-update_blog
-update_css
-update_images
+#update_index
+#update_blog
+update_history
+#update_css
+#update_images
