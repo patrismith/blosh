@@ -30,12 +30,15 @@ readonly HTML_VAR_NEXT="varNEXT"
 
 readonly CKSUM_FILE='.cksum-list'
 
-while getopts fv name
+while getopts fhiuv name
 do
     case $name in
         f) forceall=true;;
+        h) helpme=true;;
+        i) initial=true;;
+        u) doupdate=true;;
         v) verbose=true;;
-        ?) echo "Usage: ./blo.sh [ -f -v ]"
+        ?) echo "Try './blo.sh -h' for help."
         exit 2;;
     esac
 done
@@ -423,8 +426,31 @@ update_blog ()
     vecho "Blog updated."
 }
 
-#update_index
-#update_blog
-update_history
-#update_css
-#update_images
+usage ()
+{
+    echo "Usage: ./blo.sh [OPTION]"
+    echo "A bash blog script."
+    echo
+    echo "-f            force update of all files"
+    echo "-h            display this help"
+    echo "-i            create necessary directories if they don't already exist"
+    echo "-u            selectively update new and changed files"
+    echo "-v            verbose output"
+    echo
+    echo "Complete help available at <http://github.com/patrismith/blosh>"
+}
+
+if [[ $helpme ]]; then
+    usage
+elif [[ $initial ]]; then
+    mkdir -p $PATH_DRAFT/{$PATH_BLOG,$PATH_INDEX,$PATH_CSS,$PATH_TEMPLATES,$PATH_IMAGES}
+    mkdir -p $PATH_LIVE/{$PATH_BLOG,$PATH_IMAGES}
+elif [[ $doupdate ]]; then
+    update_index
+    update_blog
+    update_history
+    update_css
+    update_images
+else
+    echo "Try './blo.sh -h' for help."
+fi
