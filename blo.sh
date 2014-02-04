@@ -1,12 +1,5 @@
 #!/bin/bash
 
-# TODO: forceall appears to be called all the time, what what
-# TODO: add something to suppress updating timestamps if post/page is not new
-#       when forceall is enabled
-# TODO: deal with edge cases
-# Search TODO to find more to do
-
-# Folder names
 readonly PATH_DRAFT='./draft/'
 readonly PATH_LIVE='./live/'
 readonly PATH_BLOG='blog/'
@@ -30,6 +23,10 @@ readonly HTML_VAR_OLDER="varOLDER"
 readonly HTML_VAR_PREV="varPREVIOUS"
 readonly HTML_VAR_NEWER="varNEWER"
 readonly HTML_VAR_NEXT="varNEXT"
+readonly HTML_VAR_PREVVISIBLE="varPVISIBLE"
+readonly HTML_VAR_PREVINVISIBLE="varPINVISIBLE"
+readonly HTML_VAR_NEXTVISIBLE="varNVISIBLE"
+readonly HTML_VAR_NEXTINVISIBLE="varNINVISIBLE"
 
 readonly CKSUM_FILE='.cksum-list'
 
@@ -47,7 +44,7 @@ do
     esac
 done
 
-# errors just get echoed to stderr
+# errors are echoed to stderr
 error ()
 {
     echo "$@" >&2
@@ -56,17 +53,17 @@ error ()
 # echo a message if verbose flag is set
 vecho ()
 {
-    [ $verbose ] && echo "$@"
+    [ "$verbose" ] && echo "$@"
 }
 
 # rsync with -at and easy --include, --exclude options
 my_rsync ()
 {
-    # $1 - source folder
-    # $2 - destination folder
+    # $1 - path to source folder
+    # $2 - path to destination folder
     # $3 - optional extension to include (exclude everything else)
-    [[ $verbose ]] && v='v'
-    [[ $dryrun ]] && n='n'
+    [[ "$verbose" ]] && v='v'
+    [[ "$dryrun" ]] && n='n'
 
     if [ $# -lt 2 ]; then
         error "Needs two params."
@@ -76,10 +73,10 @@ my_rsync ()
     # TODO: -v option contingent on $verbose
     # TODO: --dry-run option enabled with flag
     if [ "$3" ]; then
-        rsync -at$v$n --include "*.$3" --exclude "*" "$1" "$2"
+        rsync -at"$v$n" --include "*.$3" --exclude "*" "$1" "$2"
         vecho "Synced $3 files of $1 and $2."
     else
-        rsync -at$v$n $file_format "$1" "$2"
+        rsync -at"$v$n" "$file_format" "$1" "$2"
         vecho "Synced $1 and $2."
     fi
     vecho
@@ -89,40 +86,39 @@ my_rsync ()
 # try to find a file's checksum in a list of checksums
 check_if_file_modified ()
 {
-    # $1 - filename
-    # $2 - checksum list
+    # $1 - filename w/ path
+    # $2 - a file containing the output of update_cksum
+    local newsum=$( cksum "$1" )
+    local oldsum=$( grep "$newsum" "$2" )
 
-    newsum=$( cksum $1 )
-
-    # combine the next two conditions ARRGGGHH
-    if [ ! -f $2 ]
+    if [ ! "-f $2" ]
     then
         vecho "No checksum list found."
-        return 1
-    elif [ ! $( grep -q "$newsum" $2 ) ]
-    then
-        vecho "File's checksum doesn't match (or file not found in list)"
-        return 1
-    else
         return 0
+    elif [[ ! "$oldsum" ]]
+    then
+        vecho "$1: File's checksum doesn't match (or file not found in list)"
+        return 0
+    else
+        vecho "$1: Checksum matches."
+        return 1
     fi
 }
 
-# Get the checksums of all files in a folder,
-# saving the results in a file
+# Get the checksums of all files in a folder, and save the results in a file
 update_cksum ()
 {
     # $1 - path to folder
     # $2 - extension to check
     # $3 - path to store the list
 
-    find $1 -type f -name "*.$2" -exec cksum {} + > $3
+    find "$1" -type f -name "*.$2" -exec cksum {} + > "$3"
 }
 
 # Sync draft and live css files
 update_css ()
 {
-    my_rsync $PATH_DRAFT$PATH_CSS $PATH_LIVE 'css'
+    my_rsync "$PATH_DRAFT$PATH_CSS" "$PATH_LIVE" 'css'
     if [ $? -eq 1 ] ; then
         error "Rsync failed for css."
     fi
@@ -131,69 +127,10 @@ update_css ()
 # Sync draft and live image folders
 update_images ()
 {
-    my_rsync $PATH_DRAFT$PATH_IMAGES $PATH_LIVE$PATH_IMAGES
+    my_rsync "$PATH_DRAFT$PATH_IMAGES" "$PATH_LIVE$PATH_IMAGES" 'png'
     if [ $? -eq 1 ] ; then
         error "Rsync failed for images."
     fi
-}
-
-# convert a markdown file to html
-# assumes an empty local var named "htmlfilename" in the parent function <:(
-# this is so htmlfilename can be used by that parent function.
-# There's probably a better way!
-md_to_html ()
-{
-    # $1 - a markdown file
-
-    htmlfilename="${1%.md}".html
-
-    markdown $1 > $htmlfilename
-    vecho "Converted $1 to $htmlfilename."
-}
-
-# Add a header file to the beginning of an html file
-prepend_header ()
-{
-    # $1 - an html file
-    # $2 - a header template
-    # $3 - optional target destination
-    local target
-
-    if [ $3 ]; then
-        target="$3"
-    else
-        target="$1"
-    fi
-
-    cat $2 $1 > $target.tmp
-    mv $target.tmp $target
-    vecho "Prepended header to $target"
-}
-
-# Add a footer file to the end of an html file
-append_footer ()
-{
-    # $1 - an html file
-    # $2 - a footer template
-
-    cat $2 >> $1
-    vecho "Appended footer to $1"
-}
-
-# Add a blog-specific header to a header file to create a new temporary template
-concat_header ()
-{
-    # $1 - a header template
-    # $2 - a blog-specific header addition
-
-    cat $1 $2 > $TEMPLATE_TEMPHEADER
-    vecho "Concatenated headers $1 and $2 "
-}
-
-# Append header and footer to history page
-publish_history ()
-{
-    prepend_header $1 $2 $PATH_HISTORY_PAGE
 }
 
 #assumes local var 'timestamp'
@@ -206,7 +143,7 @@ get_timestamp ()
 get_datestamp ()
 {
     # $1 - a number representing seconds since epoch
-    datestamp=$( date --d @$1 "+%B %d %Y")
+    datestamp=$( date --d @"$1" "+%B %d %Y")
 }
 
 # Replace a specific string in an html file with a 'last modified' timestamp
@@ -215,10 +152,10 @@ apply_timestamp ()
     # $1 - an html file
     local timestamp
 
-    if [ $1 ]; then
+    if [ "$1" ]; then
         get_timestamp
-        sed "s/$HTML_VAR_TIMESTAMP/$timestamp/" < $1 > $1.tmp
-        mv $1.tmp $1
+        sed "s/$HTML_VAR_TIMESTAMP/$timestamp/" < "$1" > "$1.tmp"
+        mv "$1.tmp" "$1"
         vecho "Timestamp of $timestamp applied to $1"
         vecho
     fi
@@ -231,49 +168,45 @@ apply_datestamp ()
     # $2 - a timestamp
     local datestamp
 
-    if [[ $1 && $2 ]]; then
-        get_datestamp $2
-        sed "s/$HTML_VAR_DATESTAMP/$datestamp/" < $1 > $1.tmp
-        mv $1.tmp $1
+    if [[ "$1" && "$2" ]]; then
+        get_datestamp "$2"
+        sed "s/$HTML_VAR_DATESTAMP/$datestamp/" < "$1" > "$1.tmp"
+        mv "$1.tmp" "$1"
         vecho "Datestamp of $datestamp applied to $1"
         vecho
     fi
 }
 
-# rename a blog post with the date of its first being processed by this script
-# (i.e. post date)
-date_post ()
-{
-    if [[ ! $1 =~ [0-9][0-9][0-9][0-9][0-9].*_.*.md$ ]]
-    then
-        mv $1 draft/blog/$( stat -c %Y $1 )_${1##*/}
-    fi
-}
-
-# is there a way to make this and update_blag be the same?
 update_index ()
 {
-    local LPATH=$PATH_DRAFT$PATH_INDEX
-    local CKSUM_LIST=$LPATH$CKSUM_FILE
+    local LPATH="$PATH_DRAFT$PATH_INDEX"
+    local CKSUM_LIST="$LPATH$CKSUM_FILE"
     local htmlfilename
     local update
+    local modified
+    local filename
 
-    for filename in $( find $LPATH -type f -name "*.md" | sort )
+    for filename in $( find "$LPATH" -type f -name "*.md" | sort )
     do
-        if [[ $forceall || ! $( check_if_file_modified $filename $CKSUM_LIST ) ]]
+        check_if_file_modified "$filename" "$CKSUM_LIST"
+        modified="$?"
+        if [ "$forceall" ] || [ "$modified" -eq 0 ]
         then
             vecho "Updating $filename."
             update=true
-            md_to_html $filename
-            prepend_header $htmlfilename $TEMPLATE_HEADER
-            append_footer $htmlfilename $TEMPLATE_FOOTER
-            apply_timestamp $htmlfilename
+            htmlfilename="${filename%.md}.html"
+            markdown "$filename" > "$htmlfilename"
+            cat "$TEMPLATE_HEADER" "$htmlfilename" > "$htmlfilename.tmp"
+            cat "$TEMPLATE_FOOTER" >> "$htmlfilename.tmp"
+            mv "$htmlfilename.tmp" "$htmlfilename"
+            apply_timestamp "$htmlfilename"
         fi
     done
 
-    if [ $update ]
+    my_rsync "$LPATH" "$PATH_LIVE" "html"
+
+    if [ "$update" ]
     then
-        my_rsync "$LPATH" "$PATH_LIVE" "html"
         update_cksum "$LPATH" "md" "$CKSUM_LIST"
         vecho "Index files updated."
     else
@@ -282,76 +215,16 @@ update_index ()
     vecho
 }
 
-# Gets rid of the hyphens in a filename
-# assumes local var 'postname'
-get_postname ()
+# rename a blog post with the date of its first being processed by this script
+# (i.e. post date)
+date_post ()
 {
-    # $1 - a filename with hyphens
-    postname=$( echo $1 | tr - ' ' )
-}
-
-add_newer_link ()
-{
-    # $1 - title of a blog entry
-    # $2 - filename of a blog entry
-    local LPATH=$PATH_DRAFT$PATH_BLOG
-    local ABSPATH="/"$PATH_BLOG$1".html"
-    local postname
-
-    if [[ $1 && $2 ]]; then
-        get_postname $1
-        sed 's|'$HTML_VAR_NEWER'|'$ABSPATH'|g' < $LPATH$2 > $LPATH$2.tmp
-        sed "s/$HTML_VAR_NEXT/next: $postname/g" < $LPATH$2.tmp > $LPATH$2
-        rm $LPATH$2.tmp
+    if [[ ! "$1" =~ [0-9][0-9][0-9][0-9][0-9].*_.*.md$ ]]
+    then
+        mv "$1" "$PATH_DRAFT$PATH_BLOG$( stat -c %Y $1 )_${1##*/}"
     fi
 }
 
-add_older_link ()
-{
-    # $1 - title of a blog entry
-    # $2 - filename of a blog entry
-    local ABSPATH="/"$PATH_BLOG$2
-    local postname
-
-    if [[ $1 && $2 ]]; then
-        get_postname $1
-        sed 's|'$HTML_VAR_OLDER'|'$ABSPATH'|g' < $htmlfilename > $htmlfilename.tmp
-        sed "s/$HTML_VAR_PREV/prev: $postname/g" < $htmlfilename.tmp > $htmlfilename
-        rm $htmlfilename.tmp
-    fi
-}
-
-# strip the timestamp off a filename
-# assumes local vars:
-# filename - the original timestamped md file
-# stripped_filename - the filename without its path
-# created_date - the timestamp (seconds since epoch)
-# title - the 'title' part of the filename
-strip_filename ()
-{
-    stripped_filename=${filename##*/}
-    read created_date title_and_extension <<<$(IFS="_"; echo $stripped_filename)
-    read title unused <<<$(IFS="."; echo $title_and_extension)
-}
-
-# records history entries in the master tmp file, $TEMPLATE_HISTORY.final.tmp
-# assumes local vars:
-# datestamp - a blog post's creation date
-# title - the post's title
-# postname - the post's title sans hyphens
-add_history_entry()
-{
-    sed "s/varDATESTAMP/$datestamp/;s/varTITLE/$title.html/;s/varPOSTNAME/$postname/" < $TEMPLATE_HISTORY > $TEMPLATE_HISTORY.tmp
-    cat $TEMPLATE_HISTORY.allentries $TEMPLATE_HISTORY.tmp > $TEMPLATE_HISTORY.allentries.tmp
-    cp $TEMPLATE_HISTORY.allentries.tmp $TEMPLATE_HISTORY.allentries
-}
-
-clean_history_tmps()
-{
-    rm $TEMPLATE_HISTORY.tmp $TEMPLATE_HISTORY.allentries.tmp $TEMPLATE_HISTORY.allentries
-}
-
-# generate a page listing all blog posts in reverse chronological order
 update_history ()
 {
     local stripped_filename
@@ -361,24 +234,28 @@ update_history ()
     local datestamp
 
     # to suppress cat error message when add_history_entry is first called
-    touch $TEMPLATE_HISTORY.allentries
+    touch "$TEMPLATE_HISTORY.allentries"
 
     for filename in $( find draft/blog -type f -name "*.md" | sort -r )
     do
         vecho "Generating history entry for $filename..."
-        strip_filename
-        get_postname $title
-        get_datestamp $created_date
-        add_history_entry
+        stripped_filename="${filename##*/}"
+        read created_date title_and_extension <<<$(IFS="_"; echo $stripped_filename)
+        read title unused <<<$(IFS="."; echo $title_and_extension)
+        postname=$( echo "$title" | tr - ' ' )
+        get_datestamp "$created_date"
+        sed "s/varDATESTAMP/$datestamp/;s/varTITLE/$title.html/;s/varPOSTNAME/$postname/" < "$TEMPLATE_HISTORY" > "$TEMPLATE_HISTORY.tmp"
+        cat "$TEMPLATE_HISTORY.allentries" "$TEMPLATE_HISTORY.tmp" > "$TEMPLATE_HISTORY.allentries.tmp"
+        cp "$TEMPLATE_HISTORY.allentries.tmp" "$TEMPLATE_HISTORY.allentries"
     done
 
     # uses prepend_header function, but notice that it is moved directly to live here.
     # since the html is generated directly, and not from a markdown file,
     # it doesn't fit neatly with the operations of the index or blog folders.
-    prepend_header $TEMPLATE_HISTORY.allentries $TEMPLATE_HEADER $PATH_HISTORY_PAGE
-    append_footer $PATH_HISTORY_PAGE $TEMPLATE_FOOTER
-    apply_timestamp $PATH_HISTORY_PAGE
-    clean_history_tmps
+    cat "$TEMPLATE_HEADER" "$TEMPLATE_HISTORY.allentries" > "$PATH_HISTORY_PAGE"
+    cat "$TEMPLATE_FOOTER" >> "$PATH_HISTORY_PAGE"
+    apply_timestamp "$PATH_HISTORY_PAGE"
+    rm -f "$TEMPLATE_HISTORY.tmp" "$TEMPLATE_HISTORY.allentries.tmp" "$TEMPLATE_HISTORY.allentries" "$PATH_DRAFT$PATH_BLOG.tmp"
     vecho "History page saved to $PATH_HISTORY_PAGE."
     vecho
 }
@@ -387,68 +264,117 @@ update_blog ()
 {
     local LPATH=$PATH_DRAFT$PATH_BLOG
     local CKSUM_LIST=$LPATH$CKSUM_FILE
-    local htmlfilename
+    local filename
     local update
-    local stripped_filename
-    local created_date
-    local title
 
     # make sure all the markdown files that don't have dates are given dates now
-    for filename in $( find $LPATH -type f -name "*.md" | sort )
+    for filename in $( find "$LPATH" -type f -name "*.md" | sort )
     do
-        date_post $filename
+        date_post "$filename"
     done
 
-    # really gotta resort???
-    for filename in $( find $LPATH -type f -name "*.md" | sort )
+    for filename in $( find "$LPATH" -type f -name "*.md" | sort )
     do
-        # if title already exists, then there is a previous file to link to
-        [ $title ] && prev_filename="$title".html
+        local modified
+        local pathless_filename
+        local created_date
+        local title
+        local unused
+        local prev_filename=""
+        local next_filename=""
+        local save_timestamp
+        local neighborfile
 
-        # Strip timestamp from filename and set title for the next file to use
-        strip_filename
+        vecho "Updating $filename."
+        update=true
 
-        if [[ $forceall || ! $( check_if_file_modified $filename $CKSUM_LIST ) ]]
+        pathless_filename="${filename##*/}"
+        read created_date title_and_extension <<<$(IFS="_"; echo $pathless_filename)
+        read title unused <<<$(IFS="."; echo $title_and_extension)
+
+        check_if_file_modified "$filename" "$CKSUM_LIST"
+        modified="$?"
+
+        markdown "$filename" > "$LPATH$title.html"
+
+        cat "$TEMPLATE_HEADER" "$TEMPLATE_BLOGHEADER" > "$TEMPLATE_TEMPHEADER"
+        cat "$TEMPLATE_TEMPHEADER" "$LPATH$title.html" > "$LPATH$title.html.tmp"
+        rm -f "$TEMPLATE_TEMPHEADER"
+        cat "$TEMPLATE_FOOTER" >> "$LPATH$title.html.tmp"
+        mv "$LPATH$title.html.tmp" "$LPATH$title.html"
+
+        if [ "$modified" -eq 0 ]
         then
-            vecho "Updating $filename."
-            update=true
-            md_to_html $filename
-            concat_header $TEMPLATE_HEADER $TEMPLATE_BLOGHEADER
-            prepend_header $htmlfilename $TEMPLATE_TEMPHEADER
-            rm $TEMPLATE_TEMPHEADER
-            append_footer $htmlfilename $TEMPLATE_FOOTER
-            apply_timestamp $htmlfilename
-            apply_datestamp $htmlfilename $created_date
-
-            if [ $prev_filename ]
-            then
-                add_newer_link $title $prev_filename
-                add_older_link $prev_title $prev_filename
-                mv $htmlfilename $LPATH$title.html
-            else
-                # a blank 'previous' link
-                sed "s/$HTML_VAR_OLDER//;s/$HTML_VAR_PREV//" < $htmlfilename > $htmlfilename.tmp
-                mv $htmlfilename.tmp $LPATH$title.html
-                rm $htmlfilename
-            fi
-            prev_title=$title
-            final_post=$title.html
+            apply_timestamp "$LPATH$title.html"
+        else
+            # change to grep timestamp from the live version and push it
+            save_timestamp=$( grep "Page updated on" "$PATH_LIVE$PATH_BLOG$title.html" | sed "s/Page updated on //;s/.<.h6>//;s/<h6>//g" )
+            sed "s/$HTML_VAR_TIMESTAMP/$save_timestamp/" < "$LPATH$title.html" > "$LPATH$title.html.tmp"
+            mv "$LPATH$title.html.tmp" "$LPATH$title.html"
+            vecho "Timestamp of $save_timestamp applied to $LPATH$title.html"
+            vecho
         fi
+        apply_datestamp "$LPATH$title.html" "$created_date"
+
+        # get previous file
+        for neighborfile in $( find "$LPATH" -type f -name "*.md" | sort | grep -B 1 "$filename" | sed "s|^.*$filename||g" )
+        do
+            echo "found $neighborfile"
+            unused_filename="${neighborfile##*/}"
+            read unused unused2 <<<$(IFS="_"; echo $unused_filename)
+            read prev_filename unused <<<$(IFS="."; echo $unused2)
+        done
+
+        # get next file
+        for neighborfile in $( find "$LPATH" -type f -name "*.md" | sort | grep -A 1 "$filename" | sed "s|^.*$filename||g" )
+        do
+            echo "found $neighborfile"
+            unused_filename="${neighborfile##*/}"
+            read unused unused2 <<<$(IFS="_"; echo $unused_filename)
+            read next_filename unused <<<$(IFS="."; echo $unused2)
+        done
+
+        echo "For $filename, $prev_filename and $next_filename are the links"
+
+        if [[ "$prev_filename" != "" ]]
+        then
+            #add link to previous blogpost
+            local ABSPATH="/$PATH_BLOG$prev_filename.html"
+            local postname=$( echo $prev_filename | tr - ' ' )
+
+            sed 's|'"$HTML_VAR_OLDER"'|'"$ABSPATH"'|g' < "$LPATH$title.html" > "$LPATH$title.html.tmp"
+            sed "s/$HTML_VAR_PREV/prev: $postname/;s/$HTML_VAR_PREVINVISIBLE/$HTML_VAR_PREVVISIBLE/g" < "$LPATH$title.html.tmp" > "$LPATH$title.html"
+        else
+            #an invisible 'previous' link
+            sed "s/$HTML_VAR_PREVVISIBLE/$HTML_VAR_PREVINVISIBLE/g" < "$LPATH$title.html" > "$LPATH$title.html.tmp"
+            mv "$LPATH$title.html.tmp" "$LPATH$title.html"
+        fi
+
+        if [[ "$next_filename" != "" ]]
+        then
+            #add link to next blogpost
+            local ABSPATH="/$PATH_BLOG$next_filename.html"
+            local postname=$( echo $next_filename | tr - ' ' )
+
+            sed 's|'"$HTML_VAR_NEWER"'|'"$ABSPATH"'|g' < "$LPATH$title.html" > "$LPATH$title.html.tmp"
+            sed "s/$HTML_VAR_NEXT/next: $postname/;s/$HTML_VAR_NEXTINVISIBLE/$HTML_VAR_NEXTVISIBLE/g" < "$LPATH$title.html.tmp" > "$LPATH$title.html"
+        else
+            #an invisible 'previous' link
+            sed "s/$HTML_VAR_NEXTVISIBLE/$HTML_VAR_NEXTINVISIBLE/g" < "$LPATH$title.html" > "$LPATH$title.html.tmp"
+            mv "$LPATH$title.html.tmp" "$LPATH$title.html"
+        fi
+
+        final_post="$title.html"
+
     done
 
-    if [ $final_post ]; then
-        # a blank 'next' link
-        sed "s/$HTML_VAR_NEWER//;s/$HTML_VAR_NEXT//" < $LPATH$final_post > $LPATH$final_post.tmp
-        mv $LPATH$final_post.tmp $LPATH$final_post
-        # copy last blog post to the index.html for the site
-        cp $LPATH$final_post $PATH_LIVE"index.html"
-    fi
+    my_rsync "$LPATH" "$PATH_LIVE$PATH_BLOG" "html"
+    update_history
+    cp "$LPATH$final_post" "$PATH_LIVE""index.html"
 
-    if [ $update ]
+    if [ "$update" ]
     then
-        my_rsync "$LPATH" "$PATH_LIVE$PATH_BLOG" "html"
         update_cksum "$LPATH" "md" "$CKSUM_LIST"
-        update_history
         vecho "Blog updated."
     else
         vecho "Blog up-to-date."
@@ -476,11 +402,12 @@ if [[ $helpme ]]; then
 elif [[ $initial ]]; then
     mkdir -p $PATH_DRAFT/{$PATH_BLOG,$PATH_INDEX,$PATH_CSS,$PATH_TEMPLATES,$PATH_IMAGES}
     mkdir -p $PATH_LIVE/{$PATH_BLOG,$PATH_IMAGES}
+    touch $TEMPLATE_HEADER $TEMPLATE_BLOGHEADER $TEMPLATE_FOOTER $TEMPLATE_HISTORY
 elif [[ $doupdate || $forceall ]]; then
-    update_index
+    #update_index
     update_blog
-    update_css
-    update_images
+    #update_css
+    #update_images
 else
     echo "Try './blo.sh -h' for help."
 fi
