@@ -319,7 +319,6 @@ update_blog ()
         # get previous file
         for neighborfile in $( find "$LPATH" -type f -name "*.md" | sort | grep -B 1 "$filename" | sed "s|^.*$filename||g" )
         do
-            echo "found $neighborfile"
             unused_filename="${neighborfile##*/}"
             read unused unused2 <<<$(IFS="_"; echo $unused_filename)
             read prev_filename unused <<<$(IFS="."; echo $unused2)
@@ -328,13 +327,10 @@ update_blog ()
         # get next file
         for neighborfile in $( find "$LPATH" -type f -name "*.md" | sort | grep -A 1 "$filename" | sed "s|^.*$filename||g" )
         do
-            echo "found $neighborfile"
             unused_filename="${neighborfile##*/}"
             read unused unused2 <<<$(IFS="_"; echo $unused_filename)
             read next_filename unused <<<$(IFS="."; echo $unused2)
         done
-
-        echo "For $filename, $prev_filename and $next_filename are the links"
 
         if [[ "$prev_filename" != "" ]]
         then
@@ -404,10 +400,10 @@ elif [[ $initial ]]; then
     mkdir -p $PATH_LIVE/{$PATH_BLOG,$PATH_IMAGES}
     touch $TEMPLATE_HEADER $TEMPLATE_BLOGHEADER $TEMPLATE_FOOTER $TEMPLATE_HISTORY
 elif [[ $doupdate || $forceall ]]; then
-    #update_index
+    update_index
     update_blog
-    #update_css
-    #update_images
+    update_css
+    update_images
 else
     echo "Try './blo.sh -h' for help."
 fi
