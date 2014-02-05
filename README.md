@@ -48,6 +48,8 @@ Warning: New pages and page/image/css updates are handled by the script, but pag
 
 5. Run a small http server (such as SimpleHTTPServer) from `live`. Navigate to its root in your web browser. You should see something like the below:
 
+![Screenshot of tutorial webpage](https://raw2.github.com/patrismith/blosh/master/screenshot.png)
+
 6. Create more posts and save them to `draft/blog/`. You should give them small names like `my-post.md` or `this-is-cool.md`, and don't use spaces or underscores in the name, just hyphens.
 
 7. Run `./blo.sh -uv` again.
