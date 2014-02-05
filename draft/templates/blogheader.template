@@ -1,0 +1,6 @@
+<div id="Nav">
+<p><a class="varPVISIBLE" href="varOLDER">varPREVIOUS</a><a class="varNVISIBLE" href="varNEWER">varNEXT</a></p>
+</div>
+<div id="Date">
+<p>Posted on varDATESTAMP</p>
+</div>

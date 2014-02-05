@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>MY FINE PAGE</title>
+<link rel="stylesheet" href="/tutorial.css" type="text/css" />
+</head>
+<body>
+<div>
+<marquee>
+WELCOME TO MY PAGE~~~
+</marquee>
+<blink> <a href="/history.html">click here for history</a> <blink>
+</div>
+<div>

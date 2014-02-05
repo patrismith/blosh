@@ -1,0 +1,36 @@
+html, body, div, p, marquee, blink {
+    display: block;
+    color: lightsalmon;
+    background-color: black;
+}
+
+a {
+  color: blue;
+}
+
+a:hover {
+  color: red;
+}
+
+/*
+the below must be included in your css file, or the blank links
+will be visible in the 'head' and 'tail' posts of your blog!
+*/
+
+.varPINVISIBLE {
+    display: none;
+    visibility: hidden;
+}
+
+.varNINVISIBLE {
+    display:none;
+    visibility: hidden;
+}
+
+.varPVISIBLE {
+    float: left;
+}
+
+.varNVISIBLE {
+    float: right;
+}
